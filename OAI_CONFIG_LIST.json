@@ -1,0 +1,9 @@
+[
+  {
+    "model": "gpt-4o",
+    "api_type": "azure",
+    "api_key": "2afd7363847246cf86c236470502e948",
+    "base_url": "https://supervisor-ai-eu.openai.azure.com/",
+    "api_version": "2024-08-01-preview"
+  }
+]
