@@ -14,7 +14,6 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
-            /* Aplicar a nova fonte aqui */
             font-family: 'Roboto', sans-serif;
             background-image: url('https://t2.tudocdn.net/716706?w=1920');
             background-size: cover;
@@ -110,9 +109,19 @@
 
         .message-container {
             display: flex;
-            justify-content: flex-end;
             align-items: flex-end;
-            margin: 5px 0;
+            margin: 10px 0;
+            width: 100%;
+        }
+
+        /* Alinhamento à esquerda (user) */
+        .user-message {
+            justify-content: flex-end;
+        }
+
+        /* Alinhamento à direita (server) */
+        .server-message {
+            justify-content: flex-start;
         }
 
         .avatar {
@@ -139,22 +148,32 @@
             word-wrap: break-word;
             flex-grow: 1;
             display: inline-block;
+            max-width: 360px;
+            min-height: 36px;
         }
 
-        .message-bubble::after {
+        .message-container.server-message .message-bubble {
+            background-color: #e1ffd4; /* Cor para mensagens de servidor */
+        }
+
+        .message-container.user-message .message-bubble {
+            background-color: #f1f1f1; /* Cor para mensagens de usuário */
+        }
+
+
+        .message-bubble::before {
             content: '';
             position: absolute;
-            right: -16px;
+            left: -16px;
             bottom: 19px;
             border-width: 8px;
             border-style: solid;
-            border-color: transparent transparent transparent #fff;
+            border-color: transparent #fff transparent  transparent;
         }
     </style>
 </head>
 <body>
-<img id="logo" src="https://logodownload.org/wp-content/uploads/2014/02/vivo-logo-4.png" alt="Emirates Logo">
-
+<img id="logo" src="https://logodownload.org/wp-content/uploads/2014/02/vivo-logo-4.png" alt="Vivo Logo">
 <div id="chat">
     <div id="messages"></div>
     <form onsubmit="sendMessage(event)">
@@ -167,54 +186,75 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked@4.0.12/marked.min.js"></script>
 <script>
-    const socket = io();
+    // Estabelece uma conexão com o WebSocket do FastAPI
+    const socket = new WebSocket("ws://127.0.0.1:5000/ws");
 
-    socket.on('message', function(data) {
-        const messages = document.getElementById('messages');
+    socket.onopen = () => {
+        console.log("Conexão WebSocket aberta.");
+    };
 
-        const messageContainer = document.createElement('div');
-        messageContainer.classList.add('message-container');
+    socket.onmessage = (event) => {
+        console.log("Mensagem recebida:", event.data);
 
-        const avatarDiv = document.createElement('div');
-        avatarDiv.classList.add('avatar');
-        const avatar = document.createElement('img');
-        avatar.src = data.sender.image;
-        avatar.title = data.sender.name;
+        const data = JSON.parse(event.data);
+
+        const messages = document.getElementById("messages");
+
+        // Criação do container de mensagens
+        const messageContainer = document.createElement("div");
+        messageContainer.classList.add("message-container");
+
+        // Adiciona classe de alinhamento com base no tipo de mensagem
+        if (data.sender?.type === "server") {
+            messageContainer.classList.add("server-message");
+        } else {
+            messageContainer.classList.add("user-message");
+        }
+
+        // Criação do avatar
+        const avatarDiv = document.createElement("div");
+        avatarDiv.classList.add("avatar");
+        const avatar = document.createElement("img");
+        avatar.src = data.sender?.image || "https://via.placeholder.com/40";
+        avatar.title = data.sender?.name || "Desconhecido";
         avatarDiv.appendChild(avatar);
 
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message-bubble');
-        messageDiv.innerHTML = `<strong>${data.sender.name}</strong>: ${marked.parse(data.content)}`;
+        // Criação do balão de mensagem
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message-bubble");
+        messageDiv.innerHTML = `<strong>${data.sender.name || "Servidor"}:</strong> ${data.content}`;
 
-        messageContainer.appendChild(messageDiv);
+        // Append: avatar e mensagem no container
         messageContainer.appendChild(avatarDiv);
+        messageContainer.appendChild(messageDiv);
 
         messages.appendChild(messageContainer);
-        messages.scrollTop = messages.scrollHeight;
-    });
 
+        // Scroll automático para a última mensagem
+        messages.scrollTop = messages.scrollHeight;
+    };
+
+    socket.onclose = () => {
+        console.log("Conexão WebSocket fechada.");
+    };
+
+    // Função para enviar mensagens
     function sendMessage(event) {
         event.preventDefault();
+
         const input = document.getElementById("messageText");
 
-        if (input.value.trim() !== "") {
-            fetch('http://localhost:8080/start', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ input: input.value })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-            })
-            .catch(error => console.error('Error:', error));
-
-            input.value = '';
+        if (!input.value.trim()) {
+            console.warn("Mensagem vazia, não enviada.");
+            return;
         }
+
+        // Enviar mensagem para o servidor via WebSocket
+        socket.send(input.value);
+
+        input.value = ""; // Limpa o campo de entrada
     }
+
 </script>
 </body>
 </html>
